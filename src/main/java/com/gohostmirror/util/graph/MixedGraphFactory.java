@@ -13,9 +13,12 @@ public class MixedGraphFactory<V, E> implements AbstractGraphFactory<V, E> {
     }
 
     private class MixedGraphMap implements GraphMap<V, E> {
-        private final Map<V, E> dummy = Collections.emptyMap();
-        private final Map<V, Map<V, E>> vertices = new HashMap<>();
+        private final SafeMap<V, E> dummy = new SafeMap<>(Collections.emptyMap());
+        private final Map<V, SafeMap<V, E>> vertices = new HashMap<>();
         private final Map<E, VertexPair<V>> edges = new HashMap<>();
+
+        private final Set<V> verticesKeySet = Collections.unmodifiableSet(vertices.keySet());
+        private final Set<E> edgesKeySet = Collections.unmodifiableSet(edges.keySet());
 
         @Override
         @Contract(pure = true)
@@ -50,13 +53,13 @@ public class MixedGraphFactory<V, E> implements AbstractGraphFactory<V, E> {
         @Override
         @Contract(pure = true)
         public @NotNull Collection<V> getVertices() {
-            return vertices.keySet();
+            return verticesKeySet;
         }
 
         @Override
         @Contract(pure = true)
         public @NotNull Collection<E> getEdges() {
-            return edges.keySet();
+            return edgesKeySet;
         }
 
         @Override
@@ -126,31 +129,65 @@ public class MixedGraphFactory<V, E> implements AbstractGraphFactory<V, E> {
             return true;
         }
 
-        private @NotNull Map<V, E> getConnectionMap(@NotNull V vertex) {
+        private @NotNull SafeMap<V, E> getConnectionMap(@NotNull V vertex) {
             return Objects.requireNonNullElse(vertices.get(vertex), dummy);
         }
 
-        private @NotNull Map<V, E> getOrCreateNotDummyConnectionMap(@NotNull V vertex) {
-            Map<V, E> connectionMap = vertices.get(vertex);
+        private @NotNull SafeMap<V, E> getOrCreateNotDummyConnectionMap(@NotNull V vertex) {
+            SafeMap<V, E> connectionMap = vertices.get(vertex);
             if (connectionMap != dummy) {
                 return connectionMap;
             }
-            Map<V, E> map = new HashMap<>();
+            SafeMap<V, E> map = new SafeMap<>();
             vertices.put(vertex, map);
             return map;
         }
     }
 
-    private static class VertexPair<V> {
-        private final List<V> vertises = new ArrayList<>(2);
+    private static class SafeMap<V, E> {
+        private final Map<V, E> map;
+        private final Set<V> keySet;
+        private final Collection<E> values;
 
-        private VertexPair(@NotNull V vertex1, @NotNull V vertex2) {
-            vertises.add(vertex1);
-            vertises.add(vertex2);
+        SafeMap() {
+            this(new HashMap<>());
         }
 
+        SafeMap(Map<V, E> map) {
+            this.map = map;
+            this.keySet = Collections.unmodifiableSet(map.keySet());
+            this.values = Collections.unmodifiableCollection(map.values());
+        }
+
+        void put(V key, E value) {
+            map.put(key, value);
+        }
+
+        E get(V key) {
+            return map.get(key);
+        }
+
+        Set<V> keySet() {
+            return keySet;
+        }
+
+        Collection<E> values() {
+            return values;
+        }
+    }
+
+    private static class VertexPair<V> {
+        private final List<V> vertices = new ArrayList<>(2);
+        private final List<V> unmodifiableVertices = Collections.unmodifiableList(vertices);
+
+        private VertexPair(@NotNull V vertex1, @NotNull V vertex2) {
+            vertices.add(vertex1);
+            vertices.add(vertex2);
+        }
+
+        @Contract(pure = true)
         @NotNull List<V> list () {
-            return vertises;
+            return unmodifiableVertices;
         }
 
         @Override
@@ -158,13 +195,13 @@ public class MixedGraphFactory<V, E> implements AbstractGraphFactory<V, E> {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             VertexPair<?> that = (VertexPair<?>) o;
-            return Objects.equals(vertises.get(0), that.vertises.get(0)) &&
-                   Objects.equals(vertises.get(1), that.vertises.get(1));
+            return Objects.equals(vertices.get(0), that.vertices.get(0)) &&
+                   Objects.equals(vertices.get(1), that.vertices.get(1));
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(vertises.get(0), vertises.get(1));
+            return Objects.hash(vertices.get(0), vertices.get(1));
         }
     }
 }

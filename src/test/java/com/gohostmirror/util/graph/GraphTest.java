@@ -15,7 +15,6 @@ public class GraphTest {
     @Test
     public void pathDirectedGraphTest() {
         Graph<Integer, Object> graph = Graphs.directedConcurrentGraph();
-        List<Integer> path;
         assemblyGraph(graph);
 /*
                   (3)---------------*(4)-------*(5)
@@ -54,7 +53,6 @@ public class GraphTest {
     @Test
     public void pathUndirectedGraphTest() {
         Graph<Integer, Object> graph = Graphs.undirectedConcurrentGraph();
-        List<Integer> path;
         assemblyGraph(graph);
 /*
                   (3)----------------(4)--------(5)
@@ -92,23 +90,23 @@ public class GraphTest {
 
     @Test
     public void addVertexTest() {
-        addVertexTest(new GhraphHelper<>(false));
-        addVertexTest(new GhraphHelper<>(true));
+        addVertexTest(new GraphHelper<>(false));
+        addVertexTest(new GraphHelper<>(true));
     }
 
     @Test
     public void addEdgeTest() {
-        addEdgeTest(new GhraphHelper<>(false));
-        addEdgeTest(new GhraphHelper<>(true));
+        addEdgeTest(new GraphHelper<>(false));
+        addEdgeTest(new GraphHelper<>(true));
     }
 
     @Test
-    public void concurrentGraphTest() {
+    public void concurrentGraphTest() throws InterruptedException {
         concurrentGraphTest(Graphs.directedConcurrentGraph());
         concurrentGraphTest(Graphs.undirectedConcurrentGraph());
     }
 
-    private void concurrentGraphTest(Graph<Integer, Integer> graph) {
+    private void concurrentGraphTest(Graph<Integer, Integer> graph) throws InterruptedException {
         final int THREAD_COUNT = 5;
         final int EDGE_COUNT = 500;
         final int VERTEX_BOUND = 50;
@@ -145,9 +143,7 @@ public class GraphTest {
             new Thread(task).start();
         }
         finishLatch.countDown();
-        try {
-            finishLatch.await();
-        } catch (InterruptedException ignore) {}
+        finishLatch.await();
 
         verifyGraphConnections(graph);
     }
@@ -195,7 +191,7 @@ public class GraphTest {
         verifyGraphConnections(graph);
     }
 
-    private void addVertexTest(@NotNull GhraphHelper<Integer, ?> helper) {
+    private void addVertexTest(@NotNull GraphHelper<Integer, ?> helper) {
         helper.isEmpty()
                 .addOrigVertex(1)
                 .addOrigVertex(2)
@@ -220,7 +216,7 @@ public class GraphTest {
         verifyGraphConnections(helper.graph);
     }
 
-    private void addEdgeTest(@NotNull GhraphHelper<String, Double> helper) {
+    private void addEdgeTest(@NotNull GraphHelper<String, Double> helper) {
         helper.isEmpty()
                 .addEdge(helper.origE(11d), helper.origV("1"), helper.origV("2"))
                 .addEdge(helper.origE(22d), helper.origV("3"), helper.origV("4"))
@@ -243,7 +239,7 @@ public class GraphTest {
         for (E edge : graph.getEdges()) {
             for (V vertex1 : vertices) {
                 for (V vertex2 : vertices) {
-                    GhraphHelper.verifyConnections(graph, edge, vertex1, vertex2);
+                    GraphHelper.verifyConnections(graph, edge, vertex1, vertex2);
                 }
             }
         }

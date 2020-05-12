@@ -2,14 +2,15 @@ package com.gohostmirror.util.graph;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Collection;
 import java.util.List;
 
 import static org.junit.Assert.*;
 
-class GhraphHelper<V, E> {
+class GraphHelper<V, E> {
     Graph<V,E> graph;
 
-    GhraphHelper(boolean directGraph) {
+    GraphHelper(boolean directGraph) {
         if (directGraph) {
             this.graph = Graphs.directedConcurrentGraph();
         } else  {
@@ -17,21 +18,21 @@ class GhraphHelper<V, E> {
         }
     }
 
-    GhraphHelper<V, E> vertexCount(int count) {
+    GraphHelper<V, E> vertexCount(int count) {
         assertEquals(count, graph.getVertexCount());
         return this;
     }
 
-    GhraphHelper<V, E> edgeCount(int count) {
+    GraphHelper<V, E> edgeCount(int count) {
         assertEquals(count, graph.getEdgeCount());
         return this;
     }
 
-    GhraphHelper<V, E> isEmpty() {
+    GraphHelper<V, E> isEmpty() {
         return vertexCount(0).edgeCount(0);
     }
 
-    GhraphHelper<V, E> addOrigVertex(@NotNull V vertex) {
+    GraphHelper<V, E> addOrigVertex(@NotNull V vertex) {
         int vertexCount = graph.getVertexCount();
         int edgeCount = graph.getEdgeCount();
 
@@ -44,7 +45,7 @@ class GhraphHelper<V, E> {
         return this;
     }
 
-    GhraphHelper<V, E> addExistVertex(@NotNull V vertex) {
+    GraphHelper<V, E> addExistVertex(@NotNull V vertex) {
         int vertexCount = graph.getVertexCount();
         int edgeCount = graph.getEdgeCount();
 
@@ -57,7 +58,7 @@ class GhraphHelper<V, E> {
         return this;
     }
 
-    GhraphHelper<V, E> addEdge(@NotNull EdgeHelper edgeHelper, @NotNull VertexHelper vertexHelper1, @NotNull VertexHelper vertexHelper2) {
+    GraphHelper<V, E> addEdge(@NotNull EdgeHelper edgeHelper, @NotNull VertexHelper vertexHelper1, @NotNull VertexHelper vertexHelper2) {
         int vertexCount = graph.getVertexCount();
         int edgeCount = graph.getEdgeCount();
 
@@ -84,7 +85,7 @@ class GhraphHelper<V, E> {
         return this;
     }
 
-    GhraphHelper<V, E> addEdge(@NotNull EdgeHelper edgeHelper, @NotNull V vertex1, @NotNull V vertex2) {
+    GraphHelper<V, E> addEdge(@NotNull EdgeHelper edgeHelper, @NotNull V vertex1, @NotNull V vertex2) {
         int vertexCount = graph.getVertexCount();
         int edgeCount = graph.getEdgeCount();
 
@@ -112,6 +113,21 @@ class GhraphHelper<V, E> {
 
     static <V, E> void verifyConnections(@NotNull Graph<V, E> graph, @NotNull E edge, @NotNull V vertex1, @NotNull V vertex2) {
         List<V> incidentVertices = graph.incidentVertices(edge);
+        Collection<E> incidentEdges1 = graph.incidentEdges(vertex1);
+        Collection<E> incidentEdges2 = graph.incidentEdges(vertex2);
+
+        if (edge.equals(graph.getEdge(vertex1, vertex2))) {
+            assertTrue(incidentEdges1.contains(edge));
+            if(!graph.isDirectedGraph()) {
+                assertTrue(incidentEdges2.contains(edge));
+            }
+        }
+        if (edge.equals(graph.getEdge(vertex2, vertex1))) {
+            assertTrue(incidentEdges2.contains(edge));
+            if(!graph.isDirectedGraph()) {
+                assertTrue(incidentEdges1.contains(edge));
+            }
+        }
 
         assertEquals(graph.isConnection(vertex1, vertex2), graph.getEdge(vertex1, vertex2) != null);
         assertEquals(graph.isConnection(vertex2, vertex1), graph.getEdge(vertex2, vertex1) != null);
