@@ -57,44 +57,84 @@ class GhraphHelper<V, E> {
         return this;
     }
 
-    GhraphHelper<V, E> addEdge(@NotNull EdgeHelper edge, @NotNull VertexHelper vertex1, @NotNull VertexHelper vertex2) {
+    GhraphHelper<V, E> addEdge(@NotNull EdgeHelper edgeHelper, @NotNull VertexHelper vertexHelper1, @NotNull VertexHelper vertexHelper2) {
         int vertexCount = graph.getVertexCount();
         int edgeCount = graph.getEdgeCount();
 
-        vertex1.assertExist();
-        vertex2.assertExist();
-        edge.assertExist();
+        vertexHelper1.assertExist();
+        vertexHelper2.assertExist();
+        edgeHelper.assertExist();
 
-        assertFalse(graph.isConnection(vertex1.vertex, vertex2.vertex));
-        assertNotEquals(edge.exist(), graph.addEdge(edge.edge, vertex1.vertex, vertex2.vertex));
+        assertFalse(graph.isConnection(vertexHelper1.vertex, vertexHelper2.vertex));
+        if(!graph.isDirectedGraph()) {
+            assertFalse(graph.isConnection(vertexHelper2.vertex, vertexHelper1.vertex));
+        }
 
-        assertTrue(graph.isVertex(vertex1.vertex));
-        assertTrue(graph.isVertex(vertex2.vertex));
-        assertTrue(graph.isEdge(edge.edge));
+        verifyConnections(edgeHelper.edge, edgeHelper.exist(), vertexHelper1.vertex, vertexHelper2.vertex);
+        boolean added = graph.addEdge(edgeHelper.edge, vertexHelper1.vertex, vertexHelper2.vertex);
+        assertNotEquals(added, edgeHelper.exist());
+        verifyConnections(edgeHelper.edge, added || edgeHelper.exist(), vertexHelper1.vertex, vertexHelper2.vertex);
 
-        assertEquals(vertexCount + vertex1.orig + vertex2.orig, graph.getVertexCount());
-        assertEquals(edgeCount+ edge.orig, graph.getEdgeCount());
+        assertTrue(graph.isVertex(vertexHelper1.vertex));
+        assertTrue(graph.isVertex(vertexHelper2.vertex));
+        assertTrue(graph.isEdge(edgeHelper.edge));
+
+        assertEquals(vertexCount + vertexHelper1.orig + vertexHelper2.orig, graph.getVertexCount());
+        assertEquals(edgeCount+ edgeHelper.orig, graph.getEdgeCount());
         return this;
     }
 
-    GhraphHelper<V, E> addEdge(@NotNull EdgeHelper edge, @NotNull V vertex1, @NotNull V vertex2) {
+    GhraphHelper<V, E> addEdge(@NotNull EdgeHelper edgeHelper, @NotNull V vertex1, @NotNull V vertex2) {
         int vertexCount = graph.getVertexCount();
         int edgeCount = graph.getEdgeCount();
 
         assertTrue(graph.isVertex(vertex1));
         assertTrue(graph.isVertex(vertex2));
-        edge.assertExist();
+        edgeHelper.assertExist();
 
         assertTrue(graph.isConnection(vertex1, vertex2));
-        assertFalse(graph.addEdge(edge.edge, vertex1, vertex2));
+        if(!graph.isDirectedGraph()) {
+            assertTrue(graph.isConnection(vertex2, vertex1));
+        }
+
+        verifyConnections(edgeHelper.edge, edgeHelper.exist(), vertex1, vertex2);
+        assertFalse(graph.addEdge(edgeHelper.edge, vertex1, vertex2));
+        verifyConnections(edgeHelper.edge, edgeHelper.exist(), vertex1, vertex2);
 
         assertTrue(graph.isVertex(vertex1));
         assertTrue(graph.isVertex(vertex2));
-        edge.assertExist();
+        edgeHelper.assertExist();
 
         assertEquals(vertexCount, graph.getVertexCount());
         assertEquals(edgeCount, graph.getEdgeCount());
         return this;
+    }
+
+    static <V, E> void verifyConnections(@NotNull Graph<V, E> graph, @NotNull E edge, @NotNull V vertex1, @NotNull V vertex2) {
+        List<V> incidentVertices = graph.incidentVertices(edge);
+
+        assertEquals(graph.isConnection(vertex1, vertex2), graph.getEdge(vertex1, vertex2) != null);
+        assertEquals(graph.isConnection(vertex2, vertex1), graph.getEdge(vertex2, vertex1) != null);
+
+        if (edge.equals(graph.getEdge(vertex1, vertex2))) {
+            assertEquals(2, incidentVertices.size());
+            assertTrue(graph.isConnection(vertex1, vertex2));
+            if(graph.isDirectedGraph()) {
+                assertEquals(vertex1, incidentVertices.get(0));
+                assertEquals(vertex2, incidentVertices.get(1));
+            } else {
+                assertTrue(graph.isConnection(vertex2, vertex1));
+                assertTrue((vertex1.equals(incidentVertices.get(0)) && vertex2.equals(incidentVertices.get(1))) ||
+                        (vertex1.equals(incidentVertices.get(1)) && vertex2.equals(incidentVertices.get(0))));
+            }
+        }
+    }
+
+    private void verifyConnections(@NotNull E edge, boolean isEdgeexist, @NotNull V vertex1, @NotNull V vertex2) {
+        List<V> incidentVertices = graph.incidentVertices(edge);
+        assertEquals(isEdgeexist, incidentVertices.size() == 2);
+        assertEquals(!isEdgeexist, incidentVertices.size() == 0);
+        verifyConnections(graph, edge, vertex1, vertex2);
     }
 
     class VertexHelper {

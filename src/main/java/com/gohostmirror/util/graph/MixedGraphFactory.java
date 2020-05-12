@@ -2,6 +2,7 @@ package com.gohostmirror.util.graph;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -81,6 +82,12 @@ public class MixedGraphFactory<V, E> implements AbstractGraphFactory<V, E> {
         }
 
         @Override
+        @Contract(pure = true)
+        public @Nullable E getEdge(@NotNull V vertex1, @NotNull V vertex2) {
+            return getConnectionMap(vertex1).get(vertex2);
+        }
+
+        @Override
         public boolean addVertex(@NotNull V vertex) {
             if (isVertex(vertex)) {
                 return false;
@@ -120,11 +127,7 @@ public class MixedGraphFactory<V, E> implements AbstractGraphFactory<V, E> {
         }
 
         private @NotNull Map<V, E> getConnectionMap(@NotNull V vertex) {
-            Map<V, E> connectionMap = vertices.get(vertex);
-            if (connectionMap != null) {
-                return connectionMap;
-            }
-            return dummy;
+            return Objects.requireNonNullElse(vertices.get(vertex), dummy);
         }
 
         private @NotNull Map<V, E> getOrCreateNotDummyConnectionMap(@NotNull V vertex) {
@@ -156,7 +159,7 @@ public class MixedGraphFactory<V, E> implements AbstractGraphFactory<V, E> {
             if (o == null || getClass() != o.getClass()) return false;
             VertexPair<?> that = (VertexPair<?>) o;
             return Objects.equals(vertises.get(0), that.vertises.get(0)) &&
-                    Objects.equals(vertises.get(1), that.vertises.get(1));
+                   Objects.equals(vertises.get(1), that.vertises.get(1));
         }
 
         @Override

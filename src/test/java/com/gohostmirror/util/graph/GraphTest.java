@@ -3,38 +3,20 @@ package com.gohostmirror.util.graph;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.*;
-import static org.junit.Assert.assertEquals;
 
 public class GraphTest {
     @Test
     public void pathDirectedGraphTest() {
         Graph<Integer, Object> graph = Graphs.directedConcurrentGraph();
         List<Integer> path;
-
-        assertTrue(graph.addEdge(new Object(), 1, 2));
-        assertTrue(graph.addEdge(new Object(), 1, 3));
-        assertTrue(graph.addEdge(new Object(), 1, 10));
-        assertTrue(graph.addEdge(new Object(), 2, 3));
-        assertTrue(graph.addEdge(new Object(), 3, 4));
-        assertTrue(graph.addEdge(new Object(), 3, 6));
-        assertTrue(graph.addEdge(new Object(), 4, 5));
-        assertTrue(graph.addEdge(new Object(), 5, 9));
-        assertTrue(graph.addEdge(new Object(), 6, 10));
-        assertTrue(graph.addEdge(new Object(), 7, 4));
-        assertTrue(graph.addEdge(new Object(), 7, 8));
-        assertTrue(graph.addEdge(new Object(), 7, 11));
-        assertTrue(graph.addEdge(new Object(), 8, 9));
-        assertTrue(graph.addEdge(new Object(), 8, 12));
-        assertTrue(graph.addEdge(new Object(), 9, 9));
-        assertTrue(graph.addEdge(new Object(), 9, 12));
-        assertTrue(graph.addEdge(new Object(), 10, 2));
-        assertTrue(graph.addEdge(new Object(), 10, 11));
-        assertTrue(graph.addEdge(new Object(), 11, 7));
-        assertTrue(graph.addEdge(new Object(), 12, 7));
-        assertTrue(graph.addEdge(new Object(), 12, 11));
+        assemblyGraph(graph);
 /*
                   (3)---------------*(4)-------*(5)
                  * * \                *           \
@@ -73,30 +55,7 @@ public class GraphTest {
     public void pathUndirectedGraphTest() {
         Graph<Integer, Object> graph = Graphs.undirectedConcurrentGraph();
         List<Integer> path;
-
-        assertTrue(graph.addEdge(new Object(), 1, 2));
-        assertTrue(graph.addEdge(new Object(), 1, 3));
-        assertTrue(graph.addEdge(new Object(), 1, 10));
-        assertTrue(graph.addEdge(new Object(), 2, 3));
-        assertTrue(graph.addEdge(new Object(), 3, 4));
-        assertTrue(graph.addEdge(new Object(), 3, 6));
-        assertTrue(graph.addEdge(new Object(), 4, 5));
-        assertTrue(graph.addEdge(new Object(), 5, 9));
-        assertTrue(graph.addEdge(new Object(), 6, 10));
-        assertTrue(graph.addEdge(new Object(), 7, 4));
-        assertTrue(graph.addEdge(new Object(), 7, 8));
-        assertTrue(graph.addEdge(new Object(), 7, 11));
-        assertTrue(graph.addEdge(new Object(), 8, 9));
-        assertTrue(graph.addEdge(new Object(), 8, 12));
-        assertTrue(graph.addEdge(new Object(), 9, 9));
-        assertTrue(graph.addEdge(new Object(), 9, 12));
-        assertTrue(graph.addEdge(new Object(), 10, 2));
-        assertTrue(graph.addEdge(new Object(), 10, 11));
-
-        assertFalse(graph.addEdge(new Object(), 11, 7));
-
-        assertTrue(graph.addEdge(new Object(), 12, 7));
-        assertTrue(graph.addEdge(new Object(), 12, 11));
+        assemblyGraph(graph);
 /*
                   (3)----------------(4)--------(5)
                  / | \                |           \
@@ -143,6 +102,99 @@ public class GraphTest {
         addEdgeTest(new GhraphHelper<>(true));
     }
 
+    @Test
+    public void concurrentGraphTest() {
+        concurrentGraphTest(Graphs.directedConcurrentGraph());
+        concurrentGraphTest(Graphs.undirectedConcurrentGraph());
+    }
+
+    private void concurrentGraphTest(Graph<Integer, Integer> graph) {
+        final int THREAD_COUNT = 5;
+        final int EDGE_COUNT = 500;
+        final int VERTEX_BOUND = 50;
+        final int GET_PATH_FACTOR = 3;
+        CountDownLatch startLatch = new CountDownLatch(THREAD_COUNT);
+        CountDownLatch finishLatch = new CountDownLatch(THREAD_COUNT + 1);
+
+        Runnable task = new Runnable() {
+            private final Random rnd = ThreadLocalRandom.current();
+
+            @Override
+            public void run() {
+                startLatch.countDown();
+                try {
+                    startLatch.await();
+                } catch (InterruptedException ignore) {}
+                for (int edge = 0; edge < EDGE_COUNT; edge++) {
+                    graph.addEdge(rnd.nextInt(EDGE_COUNT), rnd.nextInt(VERTEX_BOUND), rnd.nextInt(VERTEX_BOUND));
+                    if (rnd.nextInt(GET_PATH_FACTOR) == GET_PATH_FACTOR-1) {
+                        List<Integer> path = graph.getPath(rnd.nextInt(VERTEX_BOUND), rnd.nextInt(VERTEX_BOUND));
+                        if (path.size() >= 2) {
+                            graph.addEdge(rnd.nextInt(EDGE_COUNT), path.get(path.size() - 1), path.get(0));
+                        }
+                    }
+                }
+                finishLatch.countDown();
+                try {
+                    finishLatch.await();
+                } catch (InterruptedException ignore) {}
+            }
+        };
+
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            new Thread(task).start();
+        }
+        finishLatch.countDown();
+        try {
+            finishLatch.await();
+        } catch (InterruptedException ignore) {}
+
+        verifyGraphConnections(graph);
+    }
+
+    private void assemblyGraph(Graph<Integer, Object> graph) {
+/*
+                  (3)---------------*(4)-------*(5)
+                 * * \                *           \
+               /   |   \              |             \
+             /     |     \            |               \
+           /       |       *          |                 *
+        (1)------*(2)      (6)       (7)------*(8)-----*(9)--
+          \        *       /          * *       |       / *  \
+            \      |     /            |  \      |     /    \_/
+              \    |   /              |    \    |   /
+                *  | *                *      \  * *
+                 (10)--------------*(11)*-----(12)
+*/
+        assertTrue(graph.addEdge(new Object(), 1, 2));
+        assertTrue(graph.addEdge(new Object(), 1, 3));
+        assertTrue(graph.addEdge(new Object(), 1, 10));
+        assertTrue(graph.addEdge(new Object(), 2, 3));
+        assertTrue(graph.addEdge(new Object(), 3, 4));
+        assertTrue(graph.addEdge(new Object(), 3, 6));
+        assertTrue(graph.addEdge(new Object(), 4, 5));
+        assertTrue(graph.addEdge(new Object(), 5, 9));
+        assertTrue(graph.addEdge(new Object(), 6, 10));
+        assertTrue(graph.addEdge(new Object(), 7, 4));
+        assertTrue(graph.addEdge(new Object(), 7, 8));
+        assertTrue(graph.addEdge(new Object(), 7, 11));
+        assertTrue(graph.addEdge(new Object(), 8, 9));
+        assertTrue(graph.addEdge(new Object(), 8, 12));
+        assertTrue(graph.addEdge(new Object(), 9, 9));
+        assertTrue(graph.addEdge(new Object(), 9, 12));
+        assertTrue(graph.addEdge(new Object(), 10, 2));
+        assertTrue(graph.addEdge(new Object(), 10, 11));
+        if (graph.isDirectedGraph()) {
+            assertTrue(graph.addEdge(new Object(), 11, 7));
+        } else {
+            assertFalse(graph.addEdge(new Object(), 11, 7));
+        }
+        assertTrue(graph.addEdge(new Object(), 12, 7));
+        assertTrue(graph.addEdge(new Object(), 12, 11));
+
+        verifyGraphConnections(graph);
+    }
+
     private void addVertexTest(@NotNull GhraphHelper<Integer, ?> helper) {
         helper.isEmpty()
                 .addOrigVertex(1)
@@ -164,6 +216,8 @@ public class GraphTest {
                 .addOrigVertex(-333)
                 .vertexCount(8)
                 .edgeCount(0);
+
+        verifyGraphConnections(helper.graph);
     }
 
     private void addEdgeTest(@NotNull GhraphHelper<String, Double> helper) {
@@ -180,6 +234,19 @@ public class GraphTest {
                 .addEdge(helper.origE(222d), "3", "4")
                 .vertexCount(7)
                 .edgeCount(5);
+
+        verifyGraphConnections(helper.graph);
+    }
+
+    private static <V, E> void verifyGraphConnections(@NotNull Graph<V, E> graph) {
+        Collection<V> vertices = graph.getVertices();
+        for (E edge : graph.getEdges()) {
+            for (V vertex1 : vertices) {
+                for (V vertex2 : vertices) {
+                    GhraphHelper.verifyConnections(graph, edge, vertex1, vertex2);
+                }
+            }
+        }
     }
 
     @SafeVarargs
@@ -190,5 +257,4 @@ public class GraphTest {
             assertEquals(path.get(i), steps[i]);
         }
     }
-
 }
